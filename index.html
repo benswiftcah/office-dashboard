@@ -26,13 +26,67 @@
 
   <!-- Dashboard Grid -->
   <div class="grid grid-cols-2 gap-6">
-    <!-- Calendar -->
-    <div class="bg-slate-800 p-4 rounded-2xl shadow-xl">
-      <h3 class="text-xl font-semibold mb-2">📅 Calendar Events</h3>
-      <ul id="calendar-events">
-        <li>Loading events...</li>
-      </ul>
-    </div>
+    <!-- Calendar Section -->
+<div class="bg-slate-800 p-4 rounded-2xl shadow-xl">
+  <h3 class="text-xl font-semibold mb-2">📅 Calendar Events</h3>
+  <button id="signin" class="mb-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+    Sign in with Microsoft
+  </button>
+  <ul id="calendar-events" class="text-sm space-y-1">Sign in to load events...</ul>
+</div>
+
+<!-- Microsoft Graph SDK -->
+<script src="https://alcdn.msauth.net/browser/2.34.0/js/msal-browser.min.js"></script>
+<script>
+  const msalConfig = {
+    auth: {
+      clientId: f6f62acf-c981-4594-bcfa-4c72538c2ee0
+      redirectUri: window.location.href
+    }
+  };
+
+  const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+  document.getElementById("signin").onclick = async () => {
+    try {
+      const loginResponse = await msalInstance.loginPopup({
+        scopes: ["User.Read", "Calendars.Read"]
+      });
+
+      const accessToken = (await msalInstance.acquireTokenSilent({
+        scopes: ["Calendars.Read"],
+        account: loginResponse.account
+      })).accessToken;
+
+      fetchCalendar(accessToken);
+    } catch (err) {
+      console.error(err);
+      alert("Login failed. Check console.");
+    }
+  };
+
+  async function fetchCalendar(token) {
+    const res = await fetch("https://graph.microsoft.com/v1.0/me/calendar/events?$orderby=start/dateTime&$top=5", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+
+    const list = document.getElementById("calendar-events");
+    list.innerHTML = "";
+
+    if (!data.value || data.value.length === 0) {
+      list.innerHTML = "<li>No upcoming events</li>";
+    } else {
+      data.value.forEach(event => {
+        const li = document.createElement("li");
+        const date = new Date(event.start.dateTime);
+        li.textContent = `${date.toLocaleString()} — ${event.subject}`;
+        list.appendChild(li);
+      });
+    }
+  }
+</script>
+
 
     <!-- Excel Data -->
     <div class="bg-slate-800 p-4 rounded-2xl shadow-xl">
